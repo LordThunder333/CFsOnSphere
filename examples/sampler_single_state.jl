@@ -13,7 +13,8 @@ function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::In
     Ψcurrent::Ψproj = Ψproj(Qstar, p, N, l_m_list)
     Ψnext::Ψproj = Ψproj(Qstar, p, N, l_m_list)
 
-    filename = "$(folder_name)/data_$(N)_particles_$(numerator(ν))_$(denominator(ν))_filling_factor_$(chain_number)_chain_number.jld2"
+    # filename = "$(folder_name)/data_$(N)_particles_$(numerator(ν))_$(denominator(ν))_filling_factor_$(chain_number)_chain_number.jld2"
+    filename = joinpath(folder_name, "data_$(N)_particles_$(numerator(ν))_$(denominator(ν))_filling_factor_$(chain_number)_chain_number.jld2")
     
     θcurrent, ϕcurrent = rand_θ_ϕ_gen(RNG, N)
     
