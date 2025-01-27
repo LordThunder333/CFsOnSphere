@@ -1,5 +1,4 @@
 using CFsOnSphere
-
 using Random
 const global RNG = Random.default_rng()
 
@@ -107,9 +106,10 @@ function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::In
     current_coulomb_energy = 0.50 * sum(1.0 ./ Ψcurrent.dist_matrix)
     accumulated_coulomb_energy = zero(Float64)
 
-    θmesh::Vector{Float64} = LinRange(0.0, pi, 1000)
+    θmesh::Vector{Float64} = LinRange(0.0, pi, 250)
+    dA = 2.0 * pi .* (cos.(θmesh[begin:end-1]) .- cos.(θmesh[begin+1:end])) .* (N / (2 * ν))
+
     accumulated_density = zeros(Float64, length(θmesh))
-    
     t0 = time()
 
     for monte_carlo_iter in 1:num_steps
@@ -148,10 +148,10 @@ function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::In
 
         if mod(monte_carlo_iter, div(num_steps, 5))==0 || monte_carlo_iter == num_steps
 
-            save(filename, Dict("theta vector"=>θcurrent, "phi vector"=>ϕcurrent, "thermalization acceptance rate"=>thermalization_acceptance_rate, "number of thermalization steps"=>num_thermalization, "thermalization duration"=>δt_therm, "number of steps"=>monte_carlo_iter, "acceptance rate"=>num_samples_accepted/monte_carlo_iter, "monte carlo duration"=>time()-t0, "step size"=>σ, "coulomb energy"=>accumulated_coulomb_energy/monte_carlo_iter/sqrt(Q), "density"=>accumulated_density ./ monte_carlo_iter))
+            save(filename, Dict("theta vector"=>θcurrent, "phi vector"=>ϕcurrent, "thermalization acceptance rate"=>thermalization_acceptance_rate, "number of thermalization steps"=>num_thermalization, "thermalization duration"=>δt_therm, "number of steps"=>monte_carlo_iter, "acceptance rate"=>num_samples_accepted/monte_carlo_iter, "monte carlo duration"=>time()-t0, "step size"=>σ, "coulomb energy"=>accumulated_coulomb_energy/monte_carlo_iter/sqrt(N / (2 * ν)), "density"=>accumulated_density[begin:end-1] ./ monte_carlo_iter ./ dA, "theta mesh"=>0.50 .* (θmesh[begin:end-1] .+ θmesh[begin+1:end])))
 
         end
-
+        
     end
 
     return
