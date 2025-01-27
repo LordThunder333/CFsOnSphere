@@ -5,6 +5,20 @@ using StaticArrays
 using LinearAlgebra
 export rand_θ_ϕ_gen, proposal, arm_parameters, arm_scale_factor
 
+"""
+    rand_θ_ϕ_gen(RNG, n_samples::Int) -> Tuple{Vector{Float64}, Vector{Float64}}
+
+Generate random spherical coordinates (θ,ϕ) uniformly distributed on a unit sphere.
+
+# Arguments
+- `RNG`: Random number generator
+- `n_samples::Int`: Number of random samples to generate
+
+# Returns
+- `θlist::Vector{Float64}`: Array of θ values in [0,π]
+- `ϕlist::Vector{Float64}`: Array of ϕ values in (-π,π]
+
+"""
 function rand_θ_ϕ_gen(RNG, n_samples::Int)
     Xmat = randn(RNG, Float64, 3, n_samples)
     θlist = zeros(Float64, n_samples)
@@ -17,6 +31,32 @@ function rand_θ_ϕ_gen(RNG, n_samples::Int)
     return θlist, ϕlist
 end
 
+
+"""
+    proposal(RNG, θcurrent::Float64, ϕcurrent::Float64, σ::Float64) -> (θnew::Float64, ϕnew::Float64)
+
+Generate a proposed new position on a sphere for a Monte Carlo step, given the current position (θcurrent, ϕcurrent).
+
+The function generates a new position on the sphere using the following steps:
+1. Creates a random displacement using a Gaussian step size (σ) and random direction
+2. Represents this displacement as a quaternion from the north pole
+3. Uses quaternion rotation to map the current position to the proposal position
+4. Converts the result back to spherical coordinates
+
+This method ensures uniform sampling across the sphere.
+
+# Arguments
+- `RNG`: Random number generator
+- `θcurrent`: Current polar angle θ ∈ [0, π]
+- `ϕcurrent`: Current azimuthal angle ϕ ∈ [-π, π]
+- `σ`: Standard deviation of the Gaussian distribution for step size
+
+# Returns
+A tuple containing the new proposed position (θnew, ϕnew) on the sphere.
+
+Note: The angles follow the mathematical physics convention where θ is the polar angle 
+from the z-axis and ϕ is the azimuthal angle in the x-y plane.
+"""
 function proposal(RNG, θcurrent::Float64, ϕcurrent::Float64, σ::Float64)
 
     δθ = randn(RNG) * σ
