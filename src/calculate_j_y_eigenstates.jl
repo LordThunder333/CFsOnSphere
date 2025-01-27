@@ -7,8 +7,9 @@ function calculate_j_y_eigenstates(l::Rational)
 
     @assert denominator(2 * l) == 1 "Invalid angular momentum."
 
-    if isfile("/tmp/j_y_eigenstates_at_angular_momentum_$(numerator(l)).jls")
-        return deserialize("/tmp/j_y_eigenstates_at_angular_momentum_$(numerator(l)).jls")
+    filename = joinpath(tempdir(), "j_y_eigenstates_at_angular_momentum_$(numerator(l))_$(denominator(l)).jls")
+    if isfile(filename)
+        return deserialize(filename)
     end
 
     dim_j = numerator(2 * l + 1)
@@ -42,7 +43,7 @@ function calculate_j_y_eigenstates(l::Rational)
 
     end
 
-    serialize("/tmp/j_y_eigenstates_at_angular_momentum_$(numerator(l))_$(denominator(l)).jls", ans_dict)
+    serialize(filename, ans_dict)
     return ans_dict
 
 end
