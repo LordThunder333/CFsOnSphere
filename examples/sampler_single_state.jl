@@ -96,4 +96,4 @@ function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::In
     return
 end
 
-gibbs_sampler(".", 1, 10, 1, 1)
+gibbs_sampler(pwd(), 1, 10, 1, 1)
