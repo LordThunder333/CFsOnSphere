@@ -40,7 +40,7 @@ To use this package, follow these steps:
 This code is designed to work with **single-component composite fermion wavefunctions**, with plans to extend its scope in the future. Below are the typical steps for using the code:
 
 ### 1. Identify Occupied Λ-level Orbitals
-Determine all the Λ-level orbitals (composite fermion effective orbitals) needed for your calculation.
+Determine all the Λ-level orbitals (Landau levels of composite fermions) needed for your calculation.
 
 ### 2. Construct the Wavefunction Object
 Create a wavefunction object `ψ` using the constructor function:
