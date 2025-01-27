@@ -1,9 +1,15 @@
 module SpinPolarizedProjectedWavefunction
-export Ψproj, update_wavefunction!
+export Ψproj, update_wavefunction!, gibbs_thermalization!
 include("symmetric_polynomials.jl")
 using .SymmetricPolynomials
 include("jk_projection_utilities.jl")
 using .JKProjection
+
+using CoordinateTransformations
+using Quaternionic
+using Random
+using StaticArrays
+using LinearAlgebra
 
 function u_v_generator(θ, ϕ)
     
@@ -11,6 +17,42 @@ function u_v_generator(θ, ϕ)
 
 end
 
+
+"""
+    Ψproj
+
+    A mutable struct representing a Jain-Kamilla projected wavefunction (electrons + 2p vortices).
+
+# Fields
+- `Qstar::Rational{Int64}`: Effective monopole strength
+- `p::Int64`: Half the number of flux quanta attached to each electron.
+- `system_size::Int64`: Number of particles in the system
+
+- `l_m_list::Vector{NTuple{2,Rational{Int64}}}`: List of (occupied) angular momentum quantum numbers (L, Lz)
+- `Lmax::Rational{Int64}`: Maximum total angular momentum
+- `μ_list::Vector{Rational{Int64}}`: List of angular momentum values for Wigner-d computation
+- `Lz_list::Vector{Rational{Int64}}`: List of z-component angular momentum values
+
+- `fourier_tot_matrix::Matrix{ComplexF64}`: Reshaped Fourier matrix for efficient multiplication
+- `U::Vector{ComplexF64}`: U coordinates on sphere (cos(θ/2) * exp(iϕ/2))
+- `V::Vector{ComplexF64}`: V coordinates on sphere (sin(θ/2) * exp(-iϕ/2))
+
+- `exp_θ::Matrix{ComplexF64}`: Matrix of exponentials of theta angles
+- `exp_ϕ::Matrix{ComplexF64}`: Matrix of exponentials of phi angles
+
+- `dist_matrix::Matrix{Float64}`: Matrix of distances between particles (on the unit sphere)
+- `u_v_ratio_matrix::Matrix{ComplexF64}`: Matrix of U/V ratios (for Jain-Kamilla projection)
+
+- `elementary_symmetric_polynomials::Matrix{ComplexF64}`: Matrix of elementary symmetric polynomials (for Jain-Kamilla projection)
+- `reg_coeffs::Vector{Float64}`: Regularization coefficients (for Jain-Kamilla projection)
+
+- `wigner_d_matrices::Matrix{ComplexF64}`: Small Wigner d-matrices (for Jain-Kamilla projection)
+- `wigner_D_matrices::Array{ComplexF64,3}`: Large Wigner D-matrices (for Jain-Kamilla projection)
+
+- `jastrow_factor_log::ComplexF64}`: Logarithm of the Jastrow factor
+- `slater_det::Matrix{ComplexF64}`: Slater determinant matrix
+
+"""
 mutable struct Ψproj
 
     Qstar::Rational{Int64}
@@ -43,6 +85,22 @@ mutable struct Ψproj
     slater_det::Matrix{ComplexF64}
 end
 
+
+
+"""
+    Ψproj(Qstar::Rational{Int64}, p::Int64, system_size::Int64, l_m_list::Vector{NTuple{2,Rational{Int64}}})
+
+Constructor function for Jain-Kamilla projected wavefunction on a sphere.
+
+# Arguments
+- `Qstar::Rational{Int64}`: Effective monopole strength = Q* (= Q - p(N-1)/2, in case of composite fermions)
+- `p::Int64`: Half the number of vortices bound to each electron
+- `system_size::Int64`: Number of electrons in the system
+- `l_m_list::Vector{NTuple{2,Rational{Int64}}}`: List of angular momentum quantum numbers (l,m) representing 
+    the occupied quasi-Landau levels
+
+    Returns a `Ψproj` type object containing all necessary arrays and matrices for wavefunction calculations.
+"""
 function Ψproj(Qstar::Rational{Int64}, p::Int64, system_size::Int64, l_m_list::Vector{NTuple{2,Rational{Int64}}})
     
     Lmax = maximum(first, l_m_list)
@@ -90,6 +148,20 @@ function Ψproj(Qstar::Rational{Int64}, p::Int64, system_size::Int64, l_m_list::
     return Ψproj(Qstar, p, system_size, l_m_list, Lmax, μ_list, Lz_list, fourier_tot_matrix, U, V, exp_θ, exp_ϕ, dist_matrix, u_v_ratio_matrix, elementary_symmetric_polynomials, reg_coeffs, wigner_d_matrices, wigner_D_matrices, jastrow_factor_log, slater_det)
 end
 
+
+"""
+    update_wavefunction!(Ψ::Ψproj, θ::Vector{Float64}, ϕ::Vector{Float64})
+
+Updates the many-body wavefunction Ψ given new particle positions specified by spherical coordinates (θ,ϕ).
+
+# Arguments
+- `Ψ::Ψproj`: The projected wavefunction object to be updated
+- `θ::Vector{Float64}`: Vector of polar angles θ for each particle
+- `ϕ::Vector{Float64}`: Vector of azimuthal angles ϕ for each particle
+
+# Returns
+- `nothing`:, modifies the input wavefunction object in-place.
+"""
 function update_wavefunction!(Ψ::Ψproj, θ::Vector{Float64}, ϕ::Vector{Float64})
 
     Ψ.exp_θ .= exp.(-1.0im .* Ψ.μ_list * transpose(θ))
@@ -143,6 +215,21 @@ function update_wavefunction!(Ψ::Ψproj, θ::Vector{Float64}, ϕ::Vector{Float6
     return
 end
 
+"""
+    update_wavefunction!(Ψ::Ψproj, θ::Float64, ϕ::Float64, iter::Int64)
+
+Updates the quantum many-body wavefunction by moving the `iter`-th particle to a new position 
+specified by spherical coordinates (θ,ϕ).
+
+# Arguments
+- `Ψ::Ψproj`: The projected wavefunction state object to be updated
+- `θ::Float64`: Polar angle (theta) of the new position in radians
+- `ϕ::Float64`: Azimuthal angle (phi) of the new position in radians  
+- `iter::Int64`: Index of the particle being moved
+
+# Returns
+- `nothing`:, modifies the input wavefunction object in-place.
+"""
 function update_wavefunction!(Ψ::Ψproj, θ::Float64, ϕ::Float64, iter::Int64)
 
     Ψ.exp_θ[:, iter] .= exp.(-1.0im .* Ψ.μ_list * θ)
@@ -216,6 +303,29 @@ function update_wavefunction!(Ψ::Ψproj, θ::Float64, ϕ::Float64, iter::Int64)
     return
 end
 
+
+"""
+    copy!(Ψ1::Ψproj, Ψ2::Ψproj)
+
+In-place copy of a projected wavefunction `Ψ2` into `Ψ1`.
+
+Copies all components of the projected wavefunction including:
+- Distance matrix
+- Angular components (exp_θ, exp_ϕ)
+- U and V matrices
+- Jastrow factor (logarithmic form)
+- Slater determinant
+- Elementary symmetric polynomials
+- U/V ratio matrix
+- Wigner d and D matrices
+
+# Arguments
+- `Ψ1::Ψproj`: Destination projected wavefunction
+- `Ψ2::Ψproj`: Source projected wavefunction
+
+# Returns
+Nothing, modifies `Ψ1` in-place.
+"""
 function Base.copy!(Ψ1::Ψproj, Ψ2::Ψproj)
 
     Ψ1.dist_matrix .= Ψ2.dist_matrix
@@ -237,10 +347,22 @@ function Base.copy!(Ψ1::Ψproj, Ψ2::Ψproj)
     return
 end
 
-function Base.copy(Ψ1::Ψproj)
-    return Ψproj(Ψ1.Qstar, Ψ1.p, Ψ1.system_size, copy(Ψ1.l_m_list), Ψ1.Lmax, copy(Ψ1.μ_list), copy(Ψ1.Lz_list), copy(Ψ1.fourier_tot_matrix), copy(Ψ1.U), copy(Ψ1.V), copy(Ψ1.exp_θ), copy(Ψ1.exp_ϕ), copy(Ψ1.dist_matrix), copy(Ψ1.u_v_ratio_matrix), copy(Ψ1.elementary_symmetric_polynomials), copy(Ψ1.reg_coeffs), copy(Ψ1.wigner_d_matrices), copy(Ψ1.wigner_D_matrices), Ψ1.jastrow_factor_log, copy(Ψ1.slater_det))
-end
+"""
+    copy!(Ψ1::Ψproj, Ψ2::Ψproj, iter::Int64)
 
+Copy the state of projected wavefunction `Ψ2` into `Ψ1` assuming only the `iter`-th particle has been moved.
+
+# Arguments
+- `Ψ1::Ψproj`: Destination projected wavefunction
+- `Ψ2::Ψproj`: Source projected wavefunction
+- `iter::Int64`: Index of the particle that has been moved
+
+# Returns
+- `nothing`, modifies `Ψ1` in-place.
+
+# Note
+This method extends Base.copy! for Ψproj type objects.
+"""
 function Base.copy!(Ψ1::Ψproj, Ψ2::Ψproj, iter::Int64)
 
     Ψ1.dist_matrix .= Ψ2.dist_matrix
@@ -262,4 +384,141 @@ function Base.copy!(Ψ1::Ψproj, Ψ2::Ψproj, iter::Int64)
 
     return
 end
+
+"""
+Returns parameters for ARM scheme for step size adapation to maintain acceptance ratio.
+"""
+function arm_parameters(ideal_acceptance_ratio::Float64, r::Float64)
+    a = 1.0
+    b = 0.0
+    for i = 1:1000
+        c = (a * ideal_acceptance_ratio + b)^r
+        a = (a * ideal_acceptance_ratio + b)^(1 / r) - c
+        b = c
+    end
+    return a, b
+end
+
+"""
+Returns ARM scale factor for a given acceptance ratio, the ideal acceptance ratio and ARM parameters.
+"""
+function arm_scale_factor(p, p_i, a, b)
+    return log(a * p_i + b) / log(a * p + b)
+end
+
+function proposal(RNG, θcurrent::Float64, ϕcurrent::Float64, σ::Float64)
+
+    δθ = randn(RNG) * σ
+    δϕ = rand(RNG) * (2.0 * pi) - pi
+
+    sδθ, cδθ = sincos(δθ)
+    sδϕ, cδϕ = sincos(δϕ)
+
+    v = Quaternion(sδθ * cδϕ, sδθ * sδϕ, cδθ)
+
+    sϕ, cϕ = sincos(ϕcurrent)
+
+    q = exp(Quaternion(-sϕ, cϕ, 0.0) * θcurrent / 2)
+    v = q * v * inv(q)
+    x = SA[v[2], v[3], v[4]]
+
+    sph = SphericalFromCartesian()(x)
+    return pi/2-sph.ϕ, sph.θ
+end
+
+"""
+    gibbs_thermalization!(Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, 
+                         ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, 
+                         ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, 
+                         num_thermalization::Int64)
+
+Performs thermalization for a composite fermion (CF) wavefunction on a sphere while performing gibbs sampling.
+
+# Arguments
+- `RNG::AbstractRNG`: Random number generator
+- `Ψcurrent::Ψproj`: Current state of the CF wavefunction
+- `Ψnext::Ψproj`: Next state of the CF wavefunction
+- `θcurrent::Vector{Float64}`: Current theta angles
+- `ϕcurrent::Vector{Float64}`: Current phi angles
+- `θnext::Vector{Float64}`: Next theta angles
+- `ϕnext::Vector{Float64}`: Next phi angles
+- `σinit::Float64`: Initial step size for the proposal distribution
+- `logpdf::Function`: Log probability density function to sample from. 
+    The function should take a `Ψproj` object as input and return a real scalar value.
+- `num_thermalization::Int64`: Number of thermalization steps
+
+# Returns
+- `sampling_iter::Int64`: Final iteration index
+- `σ::Float64`: Final step size of the proposal distribution
+- `δt_therm::Float64`: Total thermalization time
+- `acceptance_rate::Float64`: Acceptance rate
+
+# Description
+Implements a Gibbs sampling algorithm with adaptive step size for thermalization
+of a composite fermion wavefunction. Uses Metropolis-Hastings acceptance criterion and 
+updates one particle position at a time. The step size is tuned during 
+thermalization to achieve a target acceptance rate of 50%.
+"""
+function gibbs_thermalization!(RNG::AbstractRNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
+    
+    acceptance_target::Float64 = 0.50 ### Gibbs sampling.
+    a::Float64, b::Float64 = arm_parameters(acceptance_target, 3.0)
+
+    num_samples_accepted_thermalization::Int64 = 0
+    δ::Float64 = 1.0
+    σ::Float64 = σinit
+
+    logpdf_current::Float64 = 0.0
+    logpdf_next::Float64 = 0.0
+
+    update_wavefunction!(Ψcurrent, θcurrent, ϕcurrent)
+    copy!(Ψnext, Ψcurrent)
+
+    logpdf_current = logpdf(Ψcurrent)
+
+    tuning_schedule::Vector{Int64} = round.(Int64, exp.(LinRange(log(10.0), log(num_thermalization), 25)))
+
+    sampling_iter::Int64 = 1
+    t0::Float64 = time()
+    for monte_carlo_iter in 1:num_thermalization
+
+        θnext[sampling_iter], ϕnext[sampling_iter] = proposal(RNG, θcurrent[sampling_iter], ϕcurrent[sampling_iter], σ)
+        update_wavefunction!(Ψnext, θnext[sampling_iter], ϕnext[sampling_iter], sampling_iter)
+
+        logpdf_next = logpdf(Ψnext)
+       
+        if logpdf_next - logpdf_current >= log(rand())
+
+            θcurrent[sampling_iter] = θnext[sampling_iter]
+            ϕcurrent[sampling_iter] = ϕnext[sampling_iter]
+
+            copy!(Ψcurrent, Ψnext, sampling_iter)
+            logpdf_current = logpdf_next
+
+            num_samples_accepted_thermalization += 1
+
+        else
+
+            θnext[sampling_iter] = θcurrent[sampling_iter]
+            ϕnext[sampling_iter] = ϕcurrent[sampling_iter]
+
+            copy!(Ψnext, Ψcurrent, sampling_iter)
+            logpdf_next = logpdf_current
+
+        end
+
+        if monte_carlo_iter ∈ tuning_schedule
+            
+            δ = arm_scale_factor(num_samples_accepted_thermalization/monte_carlo_iter, acceptance_target, a, b)
+            σ *= δ
+        end
+
+        sampling_iter = mod(sampling_iter, Ψcurrent.system_size) + 1
+
+    end
+
+    δt_therm::Float64 = time()-t0
+    return sampling_iter, σ, δt_therm, num_samples_accepted_thermalization/num_thermalization
+end
+
 end
