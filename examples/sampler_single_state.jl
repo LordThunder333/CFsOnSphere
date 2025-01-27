@@ -2,68 +2,6 @@ using CFsOnSphere
 using Random
 const global RNG = Random.default_rng()
 
-function thermalization!(Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
-    
-    acceptance_target::Float64 = 0.50 ### Gibbs sampling.
-    a::Float64, b::Float64 = arm_parameters(acceptance_target, 3.0)
-
-    num_samples_accepted_thermalization::Int64 = 0
-    δ::Float64 = 1.0
-    σ::Float64 = σinit
-
-    logpdf_current::Float64 = 0.0
-    logpdf_next::Float64 = 0.0
-
-    update_wavefunction!(Ψcurrent, θcurrent, ϕcurrent)
-    copy!(Ψnext, Ψcurrent)
-
-    logpdf_current = logpdf(Ψcurrent)
-
-    tuning_schedule::Vector{Int64} = round.(Int64, exp.(LinRange(log(10.0), log(num_thermalization), 25)))
-
-    sampling_iter::Int64 = 1
-    t0::Float64 = time()
-    for monte_carlo_iter in 1:num_thermalization
-
-        θnext[sampling_iter], ϕnext[sampling_iter] = proposal(RNG, θcurrent[sampling_iter], ϕcurrent[sampling_iter], σ)
-        update_wavefunction!(Ψnext, θnext[sampling_iter], ϕnext[sampling_iter], sampling_iter)
-
-        logpdf_next = logpdf(Ψnext)
-       
-        if logpdf_next - logpdf_current >= log(rand())
-
-            θcurrent[sampling_iter] = θnext[sampling_iter]
-            ϕcurrent[sampling_iter] = ϕnext[sampling_iter]
-
-            copy!(Ψcurrent, Ψnext, sampling_iter)
-            logpdf_current = logpdf_next
-
-            num_samples_accepted_thermalization += 1
-
-        else
-
-            θnext[sampling_iter] = θcurrent[sampling_iter]
-            ϕnext[sampling_iter] = ϕcurrent[sampling_iter]
-
-            copy!(Ψnext, Ψcurrent, sampling_iter)
-            logpdf_next = logpdf_current
-
-        end
-
-        if monte_carlo_iter ∈ tuning_schedule
-            
-            δ = arm_scale_factor(num_samples_accepted_thermalization/monte_carlo_iter, acceptance_target, a, b)
-            σ *= δ
-        end
-
-        sampling_iter = mod(sampling_iter, Ψcurrent.system_size) + 1
-
-    end
-
-    δt_therm::Float64 = time()-t0
-    return sampling_iter, σ, δt_therm, num_samples_accepted_thermalization/num_thermalization
-end
-
 function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::Int64, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 1 * 10^6)
 
     ν::Rational{Int64} = n//(2*n*p+1)
@@ -89,7 +27,7 @@ function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::In
 
     sampling_iter::Int64 = 1
 
-    sampling_iter, σ, δt_therm, thermalization_acceptance_rate = thermalization!(Ψcurrent, Ψnext, θcurrent, ϕcurrent, θnext, ϕnext, pi/sqrt(12.0), logpdf, num_thermalization)
+    sampling_iter, σ, δt_therm, thermalization_acceptance_rate = gibbs_thermalization!(RNG, Ψcurrent, Ψnext, θcurrent, ϕcurrent, θnext, ϕnext, pi/sqrt(12.0), logpdf, num_thermalization)
         
     save(filename, Dict("theta vector"=>θcurrent, "phi vector"=>ϕcurrent, "thermalization acceptance rate"=>thermalization_acceptance_rate, "number of thermalization steps"=>num_thermalization, "thermalization duration"=>δt_therm, "step size"=>σ))
 
@@ -157,4 +95,4 @@ function gibbs_sampler(folder_name::String, chain_number::Int64, N::Int64, n::In
     return
 end
 
-# gibbs_sampler(".", 1, 10, 1, 1)
+gibbs_sampler(".", 1, 10, 1, 1)
