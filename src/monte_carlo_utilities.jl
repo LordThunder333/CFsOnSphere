@@ -3,7 +3,9 @@ using CoordinateTransformations
 using Quaternionic
 using StaticArrays
 using LinearAlgebra
-export rand_θ_ϕ_gen, proposal, arm_parameters, arm_scale_factor
+using Combinatorics
+
+export rand_θ_ϕ_gen, proposal, arm_parameters, arm_scale_factor, construct_det_ratios
 
 """
     rand_θ_ϕ_gen(RNG, n_samples::Int) -> Tuple{Vector{Float64}, Vector{Float64}}
@@ -96,4 +98,95 @@ Returns ARM scale factor for a given acceptance ratio, the ideal acceptance rati
 function arm_scale_factor(p, p_i, a, b)
     return log(a * p_i + b) / log(a * p + b)
 end
+
+"""
+    construct_det_ratios(denominator_rows::Vector{Int64}, numerator_rows::Vector{Vector{Int64}})
+
+Construct a function that efficiently computes multiple determinant ratios sharing a common denominator with each determinant constructed from the subset of rows in a matrix S.
+
+# Arguments
+- `denominator_rows::Vector{Int64}`: Vector containing the row indices for the denominator determinant
+- `numerator_rows::Vector{Vector{Int64}}`: Vector of vectors, where each inner vector contains row indices for a numerator determinant
+
+# Returns
+- `helper!`: A function that takes three arguments:
+    - `res`: Vector to store the results
+    - `S`: The full matrix
+    - `Sinv`: The inverse of the matrix S[denominator_rows, :]
+
+# Details
+The function creates an optimized routine for computing multiple determinant ratios of the form:
+det(S[numerator_rows[i], :]) / det(S[denominator_rows, :])
+
+It is assumed that the elements of the matrix S are of the type ComplexF64.
+
+The implementation uses the fact that when rows in numerator and denominator overlap,
+the ratio can be reduced to a smaller determinant calculation.
+
+# Requirements
+- Length of `denominator_rows` must equal the length of each vector in `numerator_rows`
+- All vectors in `numerator_rows` must have the same length
+
+"""
+function construct_det_ratios(denominator_rows::Vector{Int64}, numerator_rows::Vector{Vector{Int64}})
+
+    @assert length(denominator_rows) == length(numerator_rows[1]) && length(unique(length, numerator_rows)) == 1 "Lengths of denominator and numerator rows do not match."
+
+    ### First, we need to identify all the common elements between the denominator and numerator rows.
+    common_elements = copy(denominator_rows) ### Okay.
+    
+    for numerator_row in numerator_rows
+        common_elements = intersect(common_elements, numerator_row)
+    end
+
+    denominator_diff = setdiff(denominator_rows, common_elements)
+
+    numerator_diffs = [setdiff(row, common_elements) for row in numerator_rows]
+    numerator_diffs_union = union(numerator_diffs...)
+
+    iters = Matrix{Int64}(undef, length(denominator_diff), length(numerator_rows))
+    for i in eachindex(numerator_rows)
+
+        numerator_diff = numerator_diffs[i]
+        
+        for j in eachindex(denominator_diff)
+
+            iters[j, i] = findfirst(isequal(numerator_diff[j]), numerator_diffs_union)
+
+        end
+
+    end
+
+    function get_sign(rows1, rows2)
+        
+        p = [findfirst(isequal(elem), rows1) for elem in rows2]
+
+        return levicivita(p)
+        
+    end
+
+    denom_sign = get_sign(denominator_rows, vcat(denominator_diff, common_elements))
+    numerators_signs = [get_sign(numerator_rows[iter], vcat(numerator_diffs[iter], common_elements)) for iter in eachindex(numerator_rows)]
+
+    temp = zeros(ComplexF64, length(numerator_diffs_union), length(denominator_diff))
+
+    intra_denom_diff = [findfirst(isequal(elem), denominator_rows) for elem in denominator_diff]
+
+    function helper!(res, S, Sinv)
+
+        @views @inbounds temp .= S[numerator_diffs_union, :] * Sinv[:, intra_denom_diff]
+
+        @simd for i in eachindex(numerator_rows)
+
+            @views @inbounds res[i] = det(temp[iters[:, i],:]) * numerators_signs[i] / denom_sign
+
+        end
+
+        return
+    end
+    
+    return helper!
+
+end
+
 end
