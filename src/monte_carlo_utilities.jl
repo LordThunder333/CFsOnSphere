@@ -5,7 +5,7 @@ using StaticArrays
 using LinearAlgebra
 using Combinatorics
 
-export rand_θ_ϕ_gen, proposal, arm_parameters, arm_scale_factor, construct_det_ratios
+export rand_θ_ϕ_gen, proposal, arm_parameters, arm_scale_factor, construct_det_ratios, update_density!
 
 """
     rand_θ_ϕ_gen(RNG, n_samples::Int) -> Tuple{Vector{Float64}, Vector{Float64}}
