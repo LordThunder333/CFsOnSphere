@@ -10,7 +10,7 @@
     update_wavefunction!(Ψ::Ψproj, θ::Float64, ϕ::Float64, iter::Int64)
 ```
 ```@docs
-    gibbs_thermalization!(Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
+    gibbs_thermalization!(RNG::AbstractRNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64) -> (Int64, Float64, Float64, Float64)
 ```
 ```@docs
     rand_θ_ϕ_gen(RNG, n_samples::Int)

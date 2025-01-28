@@ -427,9 +427,9 @@ function proposal(RNG, θcurrent::Float64, ϕcurrent::Float64, σ::Float64)
 end
 
 """
-    gibbs_thermalization!(Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
+    gibbs_thermalization!(RNG::AbstractRNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
     
-Performs thermalization for a composite fermion (CF) wavefunction on a sphere while performing gibbs sampling.
+    Performs thermalization for gibbs sampling with respect to composite fermion (CF) wavefunction on the sphere.
 
 # Arguments
 - `RNG::AbstractRNG`: Random number generator
