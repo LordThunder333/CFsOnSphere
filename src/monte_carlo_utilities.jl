@@ -189,6 +189,7 @@ function construct_det_ratios(denominator_rows::Vector{Int64}, numerator_rows::V
 
 end
 
+<<<<<<< HEAD
 """
     update_density!(θmesh::Vector{Float64}, θcurrent::Vector{Float64}, accumulated_density::Vector{Float64})
 
@@ -250,4 +251,6 @@ function update_density!(θmesh::Vector{Float64}, ϕmesh::Vector{Float64}, θcur
 end
 
 
+=======
+>>>>>>> 425e8b9e3daf423fb76fa5976b9a2a403fcd701f
 end
