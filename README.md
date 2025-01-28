@@ -1,5 +1,5 @@
-# CFsOnSphere
-
+# CompositeFermions
+This package currently implements composite fermion wavefunctions in the spherical geometry only (with plans to extend support to other geometries).
 ## Jain-Kamilla Projection in Spherical Geometry
 
 This repository contains code implementing the **Jain-Kamilla (JK) projection** in spherical geometry, following the approach outlined in [this preprint](https://arxiv.org/abs/2412.09670). The primary application is the **lowest Landau level (LLL) projection** of composite fermion (CF) and, more generally, parton wavefunctions.
