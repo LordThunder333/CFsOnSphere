@@ -249,8 +249,4 @@ function update_density!(θmesh::Vector{Float64}, ϕmesh::Vector{Float64}, θcur
     return
 
 end
-
-
-=======
->>>>>>> 425e8b9e3daf423fb76fa5976b9a2a403fcd701f
 end
