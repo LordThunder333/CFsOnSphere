@@ -427,12 +427,12 @@ function proposal(RNG, θcurrent::Float64, ϕcurrent::Float64, σ::Float64)
 end
 
 """
-    gibbs_thermalization!(RNG::AbstractRNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
+    gibbs_thermalization!(RNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
     
     Performs thermalization for gibbs sampling with respect to composite fermion (CF) wavefunction on the sphere.
 
 # Arguments
-- `RNG::AbstractRNG`: Random number generator
+- `RNG`: Random number generator
 - `Ψcurrent::Ψproj`: Current state of the CF wavefunction
 - `Ψnext::Ψproj`: Next state of the CF wavefunction
 - `θcurrent::Vector{Float64}`: Current theta angles
@@ -456,7 +456,7 @@ of a composite fermion wavefunction. Uses Metropolis-Hastings acceptance criteri
 updates one particle position at a time. The step size is tuned during 
 thermalization to achieve a target acceptance rate of 50%.
 """
-function gibbs_thermalization!(RNG::AbstractRNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
+function gibbs_thermalization!(RNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
     
     acceptance_target::Float64 = 0.50 ### Gibbs sampling.
     a::Float64, b::Float64 = arm_parameters(acceptance_target, 3.0)
