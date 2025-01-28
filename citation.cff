@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Gattu"
+  given-names: "Mytraya"
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+- family-names: "Jain"
+  given-names: "Jainendra K."
+  orcid: "https://orcid.org/0000-0000-0000-0000"
+title: "CompositeFermions"
+version: 0.0.1
+url: "https://github.com/mytraya-gattu/CompositeFermions"
