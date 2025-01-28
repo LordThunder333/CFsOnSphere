@@ -15,8 +15,6 @@ LinearAlgebra.BLAS.set_num_threads(1)
 using JLD2
 
 export Ψproj, update_wavefunction!, gibbs_thermalization!, rand_θ_ϕ_gen, proposal, legendre_polynomials!, save, load, logdet, lu, inv, update_density!, construct_det_ratios
-<<<<<<< HEAD
-=======
 
 """
     update_density!(θmesh::Vector{Float64}, θcurrent::Vector{Float64}, accumulated_density::Vector{Float64})
@@ -77,6 +75,4 @@ function update_density!(θmesh::Vector{Float64}, ϕmesh::Vector{Float64}, θcur
     return
 
 end
->>>>>>> 425e8b9e3daf423fb76fa5976b9a2a403fcd701f
-
 end
