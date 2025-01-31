@@ -43,11 +43,20 @@ const global RNG = Random.default_rng()
 
 It is always recommended to define, performance-critical code within functions. This allows the compiler to optimize your code.
 
-We will now write a function, which given a monopole strength Qstar for composite fermions, their Lambda level occupation (l_m_list) represented as pairs (L, Lz).
+We will now write a function, to which we will pass:
+1. the effective monopole strength Qstar felt by composite fermions,
+2. their Lambda level occupation (l_m_list) represented as pairs (L, Lz) - L is the angular momentum and Lz the azimuthal quantum number,
+3. p: half the number of flux quanta bound to each electron (to form a CF)
+4. num_thermalization: the number of thermalization steps which by default is set to 500_000
+4. num_steps: the number of (actual) Monte Carlo steps which by default is set to 1_000_000
 
 ````@example sampler_single_state
 function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vector{NTuple{2, Rational{Int64}}}, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
+````
 
+We always need to specify the system size. This is the number of particles in the system.
+
+````@example sampler_single_state
     system_size::Int64 = length(l_m_list)
 
     Ψcurrent::Ψproj = Ψproj(Qstar, p, system_size, l_m_list)
