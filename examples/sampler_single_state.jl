@@ -7,7 +7,7 @@ using CFsOnSphere
 using Random
 const global RNG = Random.default_rng()
 
-function gibbs_sampler(filename::Function, chain_number::Int64, Qstar::Rational{Int64}, l_m_list::Vector{NTuple{2, Rational{Int64}}}, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
+function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vector{NTuple{2, Rational{Int64}}}, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
     
     system_size::Int64 = length(l_m_list)
 
@@ -26,7 +26,7 @@ function gibbs_sampler(filename::Function, chain_number::Int64, Qstar::Rational{
 
     data = Dict("theta vector"=>θcurrent, "phi vector"=>ϕcurrent, "thermalization acceptance rate"=>thermalization_acceptance_rate, "number of thermalization steps"=>num_thermalization, "thermalization duration"=>δt_therm, "step size"=>σ)
 
-    save(filename(chain_number), data)
+    save(filename, data)
 
     num_samples_accepted::Int64 = 0
 
@@ -107,7 +107,7 @@ function gibbs_sampler(filename::Function, chain_number::Int64, Qstar::Rational{
             data["density"] = accumulated_density ./ monte_carlo_iter ./ Agrid
             data["theta grid"] = 0.50 .* (θmesh[1:end-1] .+ θmesh[2:end])
 
-            save(filename(chain_number), data)
+            save(filename, data)
         
         end
 
@@ -121,12 +121,41 @@ function sample_cf_gs(folder_name::String, chain_number::Int64, N::Int64, n::Int
     Qstar = (N//n-n)//2
     l_m_list = [(L, Lz) for L in abs(Qstar):1:(abs(Qstar)+abs(n)-1) for Lz in -L:1:L]
 
-    filename(chain_number::Int64) = "$(folder_name)/data_$(N)_particles_$(n)_$(2*n*p+1)_filling_factor_$(chain_number)_chain_number.jld2"
-
-    gibbs_sampler(filename, chain_number, Qstar, l_m_list, p, num_thermalization, num_steps)
+    filename = joinpath(folder_name, "data_$(N)_particles_$(n)_$(2*n*p+1)_filling_factor_$(chain_number)_chain_number.jld2")
+    
+    gibbs_sampler(filename, Qstar, l_m_list, p, num_thermalization, num_steps)
 
     return
 
 end
 
-sample_cf_gs("../test/", 1, 10, 1, 1)
+function sample_cf_qh(folder_name::String, chain_number::Int64, N::Int64, n::Int64, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
+
+    Qstar = (N//n-n)//2
+    Lqh = abs(Qstar) + abs(n) - 1
+
+    l_m_list = [(L, Lz) for L in abs(Qstar):1:(abs(Qstar)+abs(n)-1) for Lz in -L:1:L if !(L == Lqh && Lz == Lqh)]
+
+    filename = joinpath(folder_name, "data_$(N)_particles_$(n)_$(2*n*p+1)_filling_factor_$(chain_number)_chain_number.jld2")
+    
+    gibbs_sampler(filename, Qstar, l_m_list, p, num_thermalization, num_steps)
+
+    return
+
+end
+
+function sample_cf_qp(folder_name::String, chain_number::Int64, N::Int64, n::Int64, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
+
+    Qstar = (N//n-n)//2
+    Lqp = abs(Qstar) + abs(n)
+
+    l_m_list = [(L, Lz) for L in abs(Qstar):1:(abs(Qstar)+abs(n)-1) for Lz in -L:1:L]
+    push!(l_m_list, (Lqp, Lqp))
+
+    filename = joinpath(folder_name, "data_$(N)_particles_$(n)_$(2*n*p+1)_filling_factor_$(chain_number)_chain_number.jld2")
+    gibbs_sampler(filename, Qstar, l_m_list, p, num_thermalization, num_steps)
+
+    return
+
+end
+
