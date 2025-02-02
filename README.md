@@ -86,3 +86,8 @@ From this point, users can extend the functionality as needed for their specific
 
 ## Example Files
 We strongly recommend first-time users, especially those new to **Monte Carlo methods** in Haldane’s spherical geometry or the **fractional quantum Hall effect**, to review the provided example files for guidance.
+
+
+## To-do
+1. Upload tables from https://arxiv.org/pdf/cond-mat/9704031 so that a user can run MC chains for all the states listed and benchmark their energies.
+2. Create an automated system for sampling two-component (or more generally multi-component) wavefunctions, especially when the constituent electrons face different effective field.
