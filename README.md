@@ -32,7 +32,6 @@ To use this package, follow these steps:
      ```bash
      julia --project=path_to_folder myscript.jl
      ```
-
 ---
 
 ## Usage
