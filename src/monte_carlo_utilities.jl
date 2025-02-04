@@ -4,6 +4,7 @@ using Quaternionic
 using StaticArrays
 using LinearAlgebra
 using Combinatorics
+using Random
 
 export rand_θ_ϕ_gen, proposal, arm_parameters, arm_scale_factor, construct_det_ratios, update_density!
 

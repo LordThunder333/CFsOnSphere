@@ -1,5 +1,5 @@
 module SpinPolarizedProjectedWavefunction
-export Ψproj, update_wavefunction!, gibbs_thermalization!
+export Ψproj, Ψlaughlin, update_wavefunction!, gibbs_thermalization!
 include("symmetric_polynomials.jl")
 using .SymmetricPolynomials
 include("jk_projection_utilities.jl")
@@ -517,5 +517,183 @@ function gibbs_thermalization!(RNG, Ψcurrent::Ψproj, Ψnext::Ψproj, θcurrent
     δt_therm::Float64 = time()-t0
     return sampling_iter, σ, δt_therm, num_samples_accepted_thermalization/num_thermalization
 end
+
+mutable struct Ψlaughlin
+
+    p::Int64
+    system_size::Int64
+
+    U::Vector{ComplexF64}
+    V::Vector{ComplexF64}
+
+    dist_matrix::Matrix{Float64}
+
+    jastrow_factor_log::ComplexF64
+end
+
+
+function Ψlaughlin(p::Int64, system_size::Int64)
+
+    U = zeros(ComplexF64, system_size)
+    V = zeros(ComplexF64, system_size)
+
+    jastrow_factor_log = 0.0 + 0.0im
+
+    dist_matrix = zeros(Float64, system_size - 1, system_size)
+
+    return Ψlaughlin(p, system_size, U, V, dist_matrix, jastrow_factor_log)
+end
+
+
+function update_wavefunction!(Ψ::Ψlaughlin, θ::Vector{Float64}, ϕ::Vector{Float64})
+
+    Ψ.jastrow_factor_log = zero(ComplexF64)
+
+    Ψ.U, Ψ.V = u_v_generator(θ, ϕ)
+
+    δu = zero(ComplexF64)
+    δv = zero(ComplexF64)
+
+    for i = 1:Ψ.system_size-1
+        for j = i+1:Ψ.system_size
+
+            δv = Ψ.U[i] * Ψ.V[j] - Ψ.V[i] * Ψ.U[j]
+
+            Ψ.jastrow_factor_log += (2.0 * Ψ.p + 1) * log(δv)
+
+            Ψ.dist_matrix[j-1, i] = 2.0 * abs(δv)
+            Ψ.dist_matrix[i, j] = Ψ.dist_matrix[j-1, i]
+
+        end
+    end
+
+    return
+end
+
+function update_wavefunction!(Ψ::Ψlaughlin, θ::Float64, ϕ::Float64, iter::Int64)
+
+    unew, vnew = u_v_generator(θ, ϕ)
+
+    δv_old = zero(ComplexF64)
+    δv_new = zero(ComplexF64)
+
+    for i = 1:Ψ.system_size
+
+        if i < iter
+
+            δv_old = Ψ.U[i] * Ψ.V[iter] - Ψ.V[i] * Ψ.U[iter]
+            δv_new = Ψ.U[i] * vnew -  Ψ.V[i] * unew
+
+            Ψ.jastrow_factor_log += (1 + 2.0 * Ψ.p) * log(δv_new / δv_old)
+
+            Ψ.dist_matrix[iter-1, i] = 2.0 * abs(δv_new)
+            Ψ.dist_matrix[i, iter] = Ψ.dist_matrix[iter-1, i]
+
+        elseif i > iter
+
+            δv_old = -Ψ.U[i] * Ψ.V[iter] + Ψ.V[i] * Ψ.U[iter]
+            δv_new = -Ψ.U[i] * vnew +  Ψ.V[i] * unew
+
+            Ψ.jastrow_factor_log += (1 + 2.0 * Ψ.p) * log(δv_new / δv_old)
+
+            Ψ.dist_matrix[i-1, iter] = 2.0 * abs(δv_new)
+            Ψ.dist_matrix[iter, i] = Ψ.dist_matrix[i-1, iter]
+
+        end
+
+    end
+
+    Ψ.U[iter], Ψ.V[iter] = unew, vnew
+
+    return
+end
+
+function Base.copy!(Ψ1::Ψlaughlin, Ψ2::Ψlaughlin)
+
+    Ψ1.dist_matrix .= Ψ2.dist_matrix
+
+    Ψ1.U .= Ψ2.U
+    Ψ1.V .= Ψ2.V
+
+    Ψ1.jastrow_factor_log = Ψ2.jastrow_factor_log
+
+    return
+end
+
+function Base.copy!(Ψ1::Ψlaughlin, Ψ2::Ψlaughlin, iter::Int64)
+
+    Ψ1.dist_matrix .= Ψ2.dist_matrix
+
+    Ψ1.U[iter] = Ψ2.U[iter]
+    Ψ1.V[iter] = Ψ2.V[iter]
+
+    Ψ1.jastrow_factor_log = Ψ2.jastrow_factor_log
+
+    return
+end
+
+function gibbs_thermalization!(RNG, Ψcurrent::Ψlaughlin, Ψnext::Ψlaughlin, θcurrent::Vector{Float64}, ϕcurrent::Vector{Float64}, θnext::Vector{Float64}, ϕnext::Vector{Float64}, σinit::Float64, logpdf::Function, num_thermalization::Int64)
+    
+    acceptance_target::Float64 = 0.50 ### Gibbs sampling.
+    a::Float64, b::Float64 = arm_parameters(acceptance_target, 3.0)
+
+    num_samples_accepted_thermalization::Int64 = 0
+    δ::Float64 = 1.0
+    σ::Float64 = σinit
+
+    logpdf_current::Float64 = 0.0
+    logpdf_next::Float64 = 0.0
+
+    update_wavefunction!(Ψcurrent, θcurrent, ϕcurrent)
+    copy!(Ψnext, Ψcurrent)
+
+    logpdf_current = logpdf(Ψcurrent)
+
+    tuning_schedule::Vector{Int64} = round.(Int64, exp.(LinRange(log(10.0), log(num_thermalization), 25)))
+
+    sampling_iter::Int64 = 1
+    t0::Float64 = time()
+    for monte_carlo_iter in 1:num_thermalization
+
+        θnext[sampling_iter], ϕnext[sampling_iter] = proposal(RNG, θcurrent[sampling_iter], ϕcurrent[sampling_iter], σ)
+        update_wavefunction!(Ψnext, θnext[sampling_iter], ϕnext[sampling_iter], sampling_iter)
+
+        logpdf_next = logpdf(Ψnext)
+       
+        if logpdf_next - logpdf_current >= log(rand())
+
+            θcurrent[sampling_iter] = θnext[sampling_iter]
+            ϕcurrent[sampling_iter] = ϕnext[sampling_iter]
+
+            copy!(Ψcurrent, Ψnext, sampling_iter)
+            logpdf_current = logpdf_next
+
+            num_samples_accepted_thermalization += 1
+
+        else
+
+            θnext[sampling_iter] = θcurrent[sampling_iter]
+            ϕnext[sampling_iter] = ϕcurrent[sampling_iter]
+
+            copy!(Ψnext, Ψcurrent, sampling_iter)
+            logpdf_next = logpdf_current
+
+        end
+
+        if monte_carlo_iter ∈ tuning_schedule
+            
+            δ = arm_scale_factor(num_samples_accepted_thermalization/monte_carlo_iter, acceptance_target, a, b)
+            σ *= δ
+        end
+
+        sampling_iter = mod(sampling_iter, Ψcurrent.system_size) + 1
+
+    end
+
+    δt_therm::Float64 = time()-t0
+    return sampling_iter, σ, δt_therm, num_samples_accepted_thermalization/num_thermalization
+end
+
+
 
 end
