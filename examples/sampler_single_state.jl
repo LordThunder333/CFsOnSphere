@@ -32,7 +32,7 @@ function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vecto
     
 
     # We will now initialize our Monte Carlo simulation by generating random values for the initial positions of our particles.
-    # Again, we store two instances of the θ and ϕ vectors, which will be used to store the current and proposed positions of the particles.
+    # Again, we create two instances of the θ and ϕ vectors, which will be used to store the current and proposed positions of the particles.
 
     θcurrent, ϕcurrent = rand_θ_ϕ_gen(RNG, system_size)
 
