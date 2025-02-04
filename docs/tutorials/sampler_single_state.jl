@@ -6,17 +6,15 @@ LinearAlgebra.BLAS.set_num_threads(1)
 using CFsOnSphere
 
 using Random
-
 const global RNG = Random.default_rng()
 
 function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vector{NTuple{2, Rational{Int64}}}, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
 
-    system_size::Int64 = length(l_m_list)
+    system_size = length(l_m_list)
 
-    Ψcurrent::Ψproj = Ψproj(Qstar, p, system_size, l_m_list)
-    Ψnext::Ψproj = Ψproj(Qstar, p, system_size, l_m_list)
+    Ψcurrent = Ψproj(Qstar, p, system_size, l_m_list)
+    Ψnext = Ψproj(Qstar, p, system_size, l_m_list)
 
-    σ::Float64 = 2.0 * pi / sqrt(12.0)
     θcurrent, ϕcurrent = rand_θ_ϕ_gen(RNG, system_size)
 
     θnext = copy(θcurrent)
@@ -24,19 +22,18 @@ function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vecto
 
     logpdf(ψ::Ψproj) = 2.0 * real(logdet(ψ.slater_det) + ψ.jastrow_factor_log)
 
+    σ = pi/sqrt(12.0)
+
     sampling_iter, σ, δt_therm, thermalization_acceptance_rate = gibbs_thermalization!(RNG, Ψcurrent, Ψnext, θcurrent, ϕcurrent, θnext, ϕnext, σ, logpdf, num_thermalization)
 
     data = Dict("theta vector"=>θcurrent, "phi vector"=>ϕcurrent, "thermalization acceptance rate"=>thermalization_acceptance_rate, "number of thermalization steps"=>num_thermalization, "thermalization duration"=>δt_therm, "step size"=>σ)
 
     save(filename, data)
 
-    num_samples_accepted::Int64 = 0
+    num_samples_accepted = zero(Int64)
 
     logpdf_current::Float64 = 0.0
     logpdf_next::Float64 = 0.0
-
-    update_wavefunction!(Ψcurrent, θcurrent, ϕcurrent)
-    copy!(Ψnext, Ψcurrent)
 
     logpdf_current = logpdf(Ψcurrent)
     logpdf_next = logpdf_current
@@ -57,6 +54,7 @@ function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vecto
     end
 
     θmesh = map(x->acos(x), LinRange(1.0, -1.0, 500))
+
     Agrid = 2.0 * pi .* (cos.(θmesh[begin:end-1]) .- cos.(θmesh[begin+1:end]))
 
     accumulated_density = zeros(Float64, length(θmesh)-1)
@@ -66,6 +64,7 @@ function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vecto
     for monte_carlo_iter in 1:num_steps
 
         θnext[sampling_iter], ϕnext[sampling_iter] = proposal(RNG, θcurrent[sampling_iter], ϕcurrent[sampling_iter], σ)
+
         update_wavefunction!(Ψnext, θnext[sampling_iter], ϕnext[sampling_iter], sampling_iter)
 
         logpdf_next = logpdf(Ψnext)
@@ -82,10 +81,12 @@ function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vecto
 
             copy!(Ψcurrent, Ψnext, sampling_iter)
             logpdf_current = logpdf_next
+
             num_samples_accepted += 1
 
         else
 
+            # If the proposed state is rejected, we set the proposed state to the current state.
             θnext[sampling_iter] = θcurrent[sampling_iter]
             ϕnext[sampling_iter] = ϕcurrent[sampling_iter]
 
@@ -101,23 +102,23 @@ function gibbs_sampler(filename::String, Qstar::Rational{Int64}, l_m_list::Vecto
 
         if monte_carlo_iter == num_steps || mod(monte_carlo_iter, 5 * 10^5) == 0
 
-            data["monte carlo duration"] = time() - t0
             data["number of steps"] = monte_carlo_iter
             data["acceptance rate"] = num_samples_accepted/monte_carlo_iter
+            data["monte carlo duration"] = time() - t0
             data["pair densities"] = accumulated_pair_density ./ monte_carlo_iter
             data["r grid"] = 0.50 .* (rgrid[1:end-1] .+ rgrid[2:end])
             data["density"] = accumulated_density ./ monte_carlo_iter ./ Agrid
             data["theta grid"] = 0.50 .* (θmesh[1:end-1] .+ θmesh[2:end])
-        
+
             save(filename, data)
-        
+
         end
 
     end
-    
 
     return
 end
+
 
 function sample_cf_gs(folder_name::String, chain_number::Int64, N::Int64, n::Int64, p::Int64, num_thermalization::Int64 = 5 * 10^5, num_steps::Int64 = 10^6)
 
