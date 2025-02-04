@@ -32,7 +32,6 @@ To use this package, follow these steps:
      ```bash
      julia --project=path_to_folder myscript.jl
      ```
-
 ---
 
 ## Usage
@@ -86,3 +85,9 @@ From this point, users can extend the functionality as needed for their specific
 
 ## Example Files
 We strongly recommend first-time users, especially those new to **Monte Carlo methods** in Haldane’s spherical geometry or the **fractional quantum Hall effect**, to review the provided example files for guidance.
+
+
+## To-do
+1. Upload tables from https://arxiv.org/pdf/cond-mat/9704031 so that a user can run MC chains for all the states listed and benchmark their energies.
+2. Create an automated system for sampling two-component (or more generally multi-component) wavefunctions, especially when the constituent electrons face different effective field.
+3. There are recursive implementations to calculate the Wigner-d matrices. But these are restricted to only integer spins. Currently, a speed comparison between the recursive implementations and the Fourier implementation (used in this package) has not been performed.
