@@ -48,7 +48,7 @@ Create a wavefunction object `ψ` using the constructor function:
 ```
 - **Parameters**:
   - `Qstar`: Effective monopole strength (as a rational number).
-  - `p`: Half the number of vortices bound to each electron.
+  - `p`: The number of vortices bound to each electron.
   - `N`: Number of electrons in the system.
   - `l_m_list`: List of occupied Λ levels, represented as tuples `(L, Lz)` where `L` and `Lz` are rational numbers.
 
